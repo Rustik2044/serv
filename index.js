@@ -1,7 +1,6 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const qs = require('qs'); // Добавлено для кодирования form-urlencoded
 require('dotenv').config();
 
 const app = express();
@@ -26,20 +25,19 @@ async function getAccessToken() {
   const client_id = process.env.CLIENT_ID;
   const client_secret = process.env.CLIENT_SECRET;
 
-  const data = qs.stringify({
-    grant_type: 'client_credentials',
-    client_id,
-    client_secret
-  });
-
-  const response = await axios.post('https://api.digikey.com/v1/oauth2/token', data, {
+  const response = await axios.post('https://api.digikey.com/v1/oauth2/token', null, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    params: {
+      grant_type: 'client_credentials',
+      client_id,
+      client_secret
     }
   });
 
   cachedToken = response.data.access_token;
-  tokenExpiresAt = now + response.data.expires_in * 1000 - 5000; // буфер 5 сек
+  tokenExpiresAt = now + response.data.expires_in * 1000 - 5000; // буфер 5 секунд
   return cachedToken;
 }
 
@@ -54,7 +52,7 @@ app.post('/token', async (req, res) => {
   }
 });
 
-// Поиск компонентов
+// Поиск компонентов по ключевому слову
 app.post('/search', async (req, res) => {
   const { Keywords, RecordCount = 5 } = req.body;
 
@@ -87,6 +85,41 @@ app.post('/search', async (req, res) => {
   } catch (error) {
     console.error('Ошибка при поиске:', error.response?.data || error.message);
     res.status(500).json({ error: 'Search request failed', message: error.response?.data || error.message });
+  }
+});
+
+// Поиск по точному парт-номеру
+app.post('/lookup', async (req, res) => {
+  const { ManufacturerPartNumber } = req.body;
+
+  if (!ManufacturerPartNumber) {
+    return res.status(400).json({ error: 'ManufacturerPartNumber is required' });
+  }
+
+  try {
+    const token = await getAccessToken();
+
+    const response = await axios.post(
+      'https://api.digikey.com/products/v4/productdetails',
+      {
+        ManufacturerPartNumber
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-DIGIKEY-Client-Id': process.env.CLIENT_ID,
+          'Content-Type': 'application/json',
+          'X-DIGIKEY-Locale-Site': 'US',
+          'X-DIGIKEY-Locale-Language': 'en',
+          'X-DIGIKEY-Locale-Currency': 'USD'
+        }
+      }
+    );
+
+    res.json({ Product: response.data });
+  } catch (error) {
+    console.error('Ошибка при поиске по номеру:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Lookup request failed', message: error.response?.data || error.message });
   }
 });
 
