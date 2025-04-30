@@ -1,0 +1,35 @@
+openapi: 3.0.0
+info:
+  title: Digi-Key Proxy API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+
+paths:
+  /token:
+    post:
+      summary: Get Digi-Key access token
+      responses:
+        '200':
+          description: Access token
+
+  /search:
+    post:
+      summary: Search Digi-Key components by keyword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Keywords:
+                  type: string
+                RecordCount:
+                  type: integer
+              required:
+                - Keywords
+      responses:
+        '200':
+          description: Search result
